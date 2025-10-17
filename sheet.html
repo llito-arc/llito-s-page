@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>Character Sheet</title>
   <style>
-    /* Fondo transparente para que el widget no tenga caja sólida */
-    body{font-family:Arial;margin:20px;background:transparent;color:#222}
+  /* Transparent background so the widget has no solid box */
+  body{font-family:Arial;margin:20px;background:transparent;color:#222}
     h1{margin-bottom:8px;font-size:1.4rem}
-    /* Título resaltado: texto blanco con contorno (borde de la fuente) */
+  /* Highlighted title: white text with stroke */
     .name-badge {
     color: #ffffff;
     -webkit-text-stroke: 1.5px #333333;
@@ -24,22 +24,23 @@
     display: inline-block;
     font-size: 2rem; /* ← aumenta el tamaño del título */
     }
-    ul{list-style:none;padding:0;margin:0}
-    li{background:#fff;padding:10px;margin:8px 0;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
-    strong{display:inline-block;width:140px;color:#444}
+  ul{list-style:none;padding:0;margin:0}
+  li{background:#fff;padding:10px;margin:8px 0;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+  strong{display:inline-block;width:140px;color:#444}
+  li.section-title{background:transparent;padding:6px 8px;margin:12px 0 6px 0;border-radius:4px;font-weight:700;color:#333;font-size:1rem;}
     #trace{display:none;background:#111;color:#e6e6e6;padding:12px;border-radius:8px;font-family:monospace;white-space:pre-wrap;max-height:50vh;overflow:auto;margin-top:12px}
     .err{color:#ff6666}
     #status{color:#666;margin-bottom:10px}
   </style>
 </head>
 <body>
-  <!-- Título: se actualizará con "<Full name>'s sheet" -->
+  <!-- Title: will be updated to "<Full name>'s sheet" -->
   <h1>Character Sheet</h1>
-  <!-- Estado ocultable -->
+  <!-- Toggleable status -->
   <div id="status" aria-live="polite">Loading…</div>
   <ul id="characterData" aria-live="polite"></ul>
 
-  <!-- panel de trazas (oculto hasta fallo) -->
+  <!-- trace panel (hidden until error) -->
   <div id="trace" role="log" aria-hidden="true"></div>
 
 <script>
@@ -48,7 +49,7 @@
   const params = new URLSearchParams(window.location.search);
   const CHARACTER_ID = params.get('id') || '1';
 
-  // === Logging buffered hasta que ocurra un fallo ===
+  // === Buffered logging until an error occurs ===
   let traceVisible = false;
   const logBuffer = [];
 
@@ -76,7 +77,7 @@
     if (traceVisible) _appendToTraceDOM(text, type);
   }
 
-  // === CSV parsing robusta ===
+  // === Robust CSV parsing ===
   function detectSeparator(sample) {
     const commas = (sample.match(/,/g)||[]).length;
     const semis = (sample.match(/;/g)||[]).length;
@@ -105,7 +106,7 @@
     return rows.map(r => r.map(f => (f||'').replace(/^"|"$/g,'').trim()));
   }
 
-  // Buscar índice de cabecera "Full name" con tolerancia a variantes
+  // Find header index for "Full name" with tolerant matching
   function findFullNameIndex(headers) {
     for (let i = 0; i < headers.length; i++) {
       const h = (headers[i] || '').toString().toLowerCase().replace(/\s+/g,' ').trim();
@@ -114,7 +115,7 @@
     return -1;
   }
 
-  // === Lógica principal ===
+  // === Main logic ===
   async function loadCharacter() {
     const status = document.getElementById('status');
     const container = document.getElementById('characterData');
@@ -138,7 +139,7 @@
         log('Detected HTML in response -> probable editor page or error page (not CSV).', 'err');
         showTraceNow();
         status.textContent = 'Error: response is HTML, not CSV';
-        container.innerHTML = `<li class="err">Response looks like HTML (not CSV). Use "Archivo → Publicar en la web" and pega la URL <code>pub?output=csv</code>.</li>`;
+        container.innerHTML = `<li class="err">Response looks like HTML (not CSV). Make sure you published the sheet to the web and use the CSV <code>pub?output=csv</code> URL.</li>`;
         return;
       }
 
@@ -169,34 +170,77 @@
         return;
       }
 
-      // Éxito — preparar datos
+  // Success — prepare data
       const row = rows[matchIndex];
       const fullNameIdx = findFullNameIndex(headers);
       const fullnameVal = (fullNameIdx !== -1 ? (row[fullNameIdx] || '') : (row[1] || '')) || 'Character';
 
-  // Título: "<Full name>'s sheet"
+  // Title: "<Full name>'s sheet"
   title.textContent = `${fullnameVal}'s sheet`;
-  // aplicar la clase que pinta el texto en blanco y añade borde gris
+  // apply the class that paints the text white and adds a gray stroke
   title.classList.add('name-badge');
 
-      // Ocultar estado
+  // Hide status
       status.textContent = '';
       status.style.display = 'none';
 
-      // Construir lista: omitimos solo columna 0 (ID). Añadimos campo Full name al inicio.
+      // --- Custom section and field order ---
       container.innerHTML = '';
-      // Full name field explicit
-      container.innerHTML += `<li><strong>Full name:</strong> ${fullnameVal}</li>`;
-
-      // ahora añadimos el resto de campos (omitimos columna 0 y, si existe, la columna fullNameIdx para evitar duplicado)
       const skip = new Set([0]);
       if (fullNameIdx !== -1) skip.add(fullNameIdx);
-
+      // Map: header label (lowercase, trimmed) -> value
+      const fieldMap = {};
       for (let i = 0; i < headers.length; i++) {
         if (skip.has(i)) continue;
-        const label = headers[i] || `col${i}`;
-        const value = row[i] || '—';
-        container.innerHTML += `<li><strong>${label}:</strong> ${value}</li>`;
+        fieldMap[headers[i].toLowerCase().trim()] = row[i] || '—';
+      }
+
+      // Section definitions: array of {title, fields: [header]}
+      const sections = [
+        {title: 'Basic Information', fields: [
+          'full name','title','place of birth','species','age','date of birth','status (alive or dead)']},
+        {title: 'Physical Appearance', fields: [
+          'height','weight','hair color and style','eye color','skin color or texture','distinctive marks (tattoos, scars, etc.)']},
+        {title: 'Psychological Traits', fields: [
+          'personality','moral compass','strengths','weaknesses','motivation','fears','sense of humor']},
+        {title: 'Relationships and Work', fields: [
+          'occupation','family','best friends','enemies','romantic partner or relationships']},
+        {title: 'Likes and Preferences', fields: [
+          'likes','dislikes','hobbies','favorite animal','favorite food','favorite drink','favorite color']},
+        {title: 'Health and Well-being', fields: [
+          'blood type','gender','energy levels','allergies']},
+        {title: 'History and Experiences', fields: [
+          'major achievements','long-term dreams or goals','life-changing experiences']},
+        {title: 'Other', fields: [
+          'special skills or talents','quirks or habits','philosophy of life']},
+        {title: 'Equipment', fields: [
+          'weapons','armor','miscellaneous gear']},
+        {title: 'Extra', fields: ['extra']}
+      ];
+
+      // Render in order, only if field exists
+      for (const section of sections) {
+        let hasAny = false;
+        for (const field of section.fields) {
+          if (fieldMap[field.toLowerCase().trim()]) { hasAny = true; break; }
+        }
+        if (!hasAny) continue;
+        container.innerHTML += `<li class="section-title">${section.title}</li>`;
+        for (const field of section.fields) {
+          const val = fieldMap[field.toLowerCase().trim()];
+          if (val !== undefined) {
+            container.innerHTML += `<li><strong>${field}:</strong> ${val}</li>`;
+            delete fieldMap[field.toLowerCase().trim()];
+          }
+        }
+      }
+      // Any remaining fields (not mapped) go to Extra
+      const extraKeys = Object.keys(fieldMap);
+      if (extraKeys.length) {
+        container.innerHTML += `<li class="section-title">Extra</li>`;
+        for (const k of extraKeys) {
+          container.innerHTML += `<li><strong>${k}:</strong> ${fieldMap[k]}</li>`;
+        }
       }
 
     } catch (err) {
@@ -205,7 +249,7 @@
       document.getElementById('status').textContent = 'Error fetching data';
       document.getElementById('characterData').innerHTML =
         `<li class="err">Fetch error: ${err.message || err}</li>
-         <li class="err">Si ves <code>TypeError: Failed to fetch</code>, revisa permisos/CORS y usa la URL <code>pub?output=csv</code>.</li>`;
+         <li class="err">If you see <code>TypeError: Failed to fetch</code>, check permissions/CORS and use the CSV <code>pub?output=csv</code> URL.</li>`;
     }
   }
 
