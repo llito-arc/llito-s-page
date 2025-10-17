@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Character Sheet</title>
+  <style>
+    /* Fondo transparente para que el widget no tenga caja sólida */
+    body{font-family:Arial;margin:20px;background:transparent;color:#222}
+    h1{margin-bottom:8px;font-size:1.4rem}
+    /* Título resaltado: texto blanco con contorno (borde de la fuente) */
+    .name-badge {
+    color: #ffffff;
+    -webkit-text-stroke: 1.5px #333333;
+    text-shadow: 
+        1px 1px 0 #333, 
+        -1px 1px 0 #333, 
+        1px -1px 0 #333, 
+        -1px -1px 0 #333,
+        0 1px 0 #333,
+        0 -1px 0 #333,
+        1px 0 0 #333,
+        -1px 0 0 #333;
+    padding: 6px 10px;
+    display: inline-block;
+    font-size: 2rem; /* ← aumenta el tamaño del título */
+    }
+    ul{list-style:none;padding:0;margin:0}
+    li{background:#fff;padding:10px;margin:8px 0;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+    strong{display:inline-block;width:140px;color:#444}
+    #trace{display:none;background:#111;color:#e6e6e6;padding:12px;border-radius:8px;font-family:monospace;white-space:pre-wrap;max-height:50vh;overflow:auto;margin-top:12px}
+    .err{color:#ff6666}
+    #status{color:#666;margin-bottom:10px}
+  </style>
+</head>
+<body>
+  <!-- Título: se actualizará con "<Full name>'s sheet" -->
+  <h1>Character Sheet</h1>
+  <!-- Estado ocultable -->
+  <div id="status" aria-live="polite">Loading…</div>
+  <ul id="characterData" aria-live="polite"></ul>
+
+  <!-- panel de trazas (oculto hasta fallo) -->
+  <div id="trace" role="log" aria-hidden="true"></div>
+
+<script>
+  // === CONFIG ===
+  const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0iPs6gXT9DsZX591X0bGdROgypuxJ-b2_ygQb9L2ZgnsSv2j4OGkz_D1oe75T4uTBA6YFgjzXq_TC/pub?gid=0&single=true&output=csv";
+  const params = new URLSearchParams(window.location.search);
+  const CHARACTER_ID = params.get('id') || '1';
+(string)
+
+  // === Logging buffered hasta que ocurra un fallo ===
+  let traceVisible = false;
+  const logBuffer = [];
+
+  function _appendToTraceDOM(text, type='info') {
+    const t = document.getElementById('trace');
+    const entry = text + '\n';
+    t.textContent += entry;
+    if (type === 'err') console.error(`[trace] ${text}`); else console.log(`[trace] ${text}`);
+  }
+
+  function showTraceNow() {
+    if (traceVisible) return;
+    traceVisible = true;
+    const t = document.getElementById('trace');
+    t.style.display = 'block';
+    t.setAttribute('aria-hidden','false');
+    for (const item of logBuffer) _appendToTraceDOM(item.msg, item.type);
+    logBuffer.length = 0;
+  }
+
+  function log(msg, type='info') {
+    const ts = new Date().toISOString();
+    const text = `[${ts}] ${msg}`;
+    logBuffer.push({msg: text, type});
+    if (traceVisible) _appendToTraceDOM(text, type);
+  }
+
+  // === CSV parsing robusta ===
+  function detectSeparator(sample) {
+    const commas = (sample.match(/,/g)||[]).length;
+    const semis = (sample.match(/;/g)||[]).length;
+    return semis > commas ? ';' : ',';
+  }
+
+  function parseCSV(text, sep=',') {
+    const rows = [];
+    let cur = '', row = [], inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const next = text[i+1];
+      if (ch === '"') {
+        if (inQuotes && next === '"') { cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === sep && !inQuotes) {
+        row.push(cur); cur = '';
+      } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+        if (ch === '\r' && next === '\n') { i++; }
+        row.push(cur); rows.push(row); row = []; cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+    return rows.map(r => r.map(f => (f||'').replace(/^"|"$/g,'').trim()));
+  }
+
+  // Buscar índice de cabecera "Full name" con tolerancia a variantes
+  function findFullNameIndex(headers) {
+    for (let i = 0; i < headers.length; i++) {
+      const h = (headers[i] || '').toString().toLowerCase().replace(/\s+/g,' ').trim();
+      if (h === 'full name' || h === 'fullname' || h === 'name' || (h.includes('full') && h.includes('name'))) return i;
+    }
+    return -1;
+  }
+
+  // === Lógica principal ===
+  async function loadCharacter() {
+    const status = document.getElementById('status');
+    const container = document.getElementById('characterData');
+    const title = document.querySelector('h1');
+
+    try {
+      log(`Attempting fetch of SHEET_URL: ${SHEET_URL}`);
+      const start = performance.now();
+      const res = await fetch(SHEET_URL, { cache: 'no-store' });
+      const took = (performance.now() - start).toFixed(1);
+      log(`Fetch completed - status: ${res.status} ${res.statusText} (took ${took} ms)`);
+
+      const ct = res.headers.get('content-type') || '';
+      log(`Response content-type: ${ct}`);
+
+      const text = await res.text();
+      log(`Response length: ${text.length} characters.`);
+
+      const trimmed = text.trim().slice(0,200).toLowerCase();
+      if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || trimmed.includes('<div')) {
+        log('Detected HTML in response -> probable editor page or error page (not CSV).', 'err');
+        showTraceNow();
+        status.textContent = 'Error: response is HTML, not CSV';
+        container.innerHTML = `<li class="err">Response looks like HTML (not CSV). Use "Archivo → Publicar en la web" and pega la URL <code>pub?output=csv</code>.</li>`;
+        return;
+      }
+
+      const sep = detectSeparator(text.slice(0,1000));
+      log(`Detected separator: "${sep}"`);
+      const rows = parseCSV(text, sep);
+      log(`Parsed rows: ${rows.length}`);
+      if (rows.length < 2) {
+        log('No data rows parsed from CSV', 'err');
+        showTraceNow();
+        status.textContent = 'Error: no data rows';
+        container.innerHTML = `<li class="err">No data rows parsed from CSV.</li>`;
+        return;
+      }
+
+      const headers = rows[0].map(h => h.trim());
+      log(`Headers (${headers.length}): ${headers.join(' | ')}`);
+
+      const matchIndex = rows.findIndex(r => (r[0]||'').toString().trim() === CHARACTER_ID.toString().trim());
+      log(`Searching for ID "${CHARACTER_ID}" in column 0 -> found index: ${matchIndex}`);
+
+      if (matchIndex === -1) {
+        log('ID not found in sheet. Will show trace.', 'err');
+        showTraceNow();
+        const ids = rows.slice(1,31).map(r => (r[0]||'').toString().trim());
+        status.textContent = `Character ID "${CHARACTER_ID}" not found`;
+        container.innerHTML = `<li class="err">No character found with ID "${CHARACTER_ID}".<br>Available IDs (first 30): ${ids.join(', ')}</li>`;
+        return;
+      }
+
+      // Éxito — preparar datos
+      const row = rows[matchIndex];
+      const fullNameIdx = findFullNameIndex(headers);
+      const fullnameVal = (fullNameIdx !== -1 ? (row[fullNameIdx] || '') : (row[1] || '')) || 'Character';
+
+  // Título: "<Full name>'s sheet"
+  title.textContent = `${fullnameVal}'s sheet`;
+  // aplicar la clase que pinta el texto en blanco y añade borde gris
+  title.classList.add('name-badge');
+
+      // Ocultar estado
+      status.textContent = '';
+      status.style.display = 'none';
+
+      // Construir lista: omitimos solo columna 0 (ID). Añadimos campo Full name al inicio.
+      container.innerHTML = '';
+      // Full name field explicit
+      container.innerHTML += `<li><strong>Full name:</strong> ${fullnameVal}</li>`;
+
+      // ahora añadimos el resto de campos (omitimos columna 0 y, si existe, la columna fullNameIdx para evitar duplicado)
+      const skip = new Set([0]);
+      if (fullNameIdx !== -1) skip.add(fullNameIdx);
+
+      for (let i = 0; i < headers.length; i++) {
+        if (skip.has(i)) continue;
+        const label = headers[i] || `col${i}`;
+        const value = row[i] || '—';
+        container.innerHTML += `<li><strong>${label}:</strong> ${value}</li>`;
+      }
+
+    } catch (err) {
+      log(`Fetch/processing error: ${err}`, 'err');
+      showTraceNow();
+      document.getElementById('status').textContent = 'Error fetching data';
+      document.getElementById('characterData').innerHTML =
+        `<li class="err">Fetch error: ${err.message || err}</li>
+         <li class="err">Si ves <code>TypeError: Failed to fetch</code>, revisa permisos/CORS y usa la URL <code>pub?output=csv</code>.</li>`;
+    }
+  }
+
+  loadCharacter();
+</script>
+</body>
+</html>
