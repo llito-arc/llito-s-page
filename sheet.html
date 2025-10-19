@@ -217,16 +217,27 @@
       // Construir lista de campos
       container.innerHTML = '';
       
+      // Función auxiliar para decodificar entidades HTML
+      const decodeHTMLEntities = (text) => {
+        const element = document.createElement('div');
+        // Primero decodificamos las entidades HTML que ya vienen en el texto
+        element.innerHTML = text;
+        let decodedText = element.textContent;
+        return decodedText;
+      };
+
       // Función auxiliar para formatear el valor
       const formatValue = (value) => {
         if (!value || value.trim() === '') return '—';
-        // Escapar HTML para evitar inyección de código
-        return value
+        // Primero decodificamos entidades HTML existentes
+        const decodedValue = decodeHTMLEntities(value);
+        // Luego escapamos caracteres especiales para evitar inyección de código
+        return decodedValue
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;');
+          .replace(/'/g, "'");
       };
 
       // Función para crear un elemento de la lista
