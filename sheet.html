@@ -25,9 +25,40 @@
     font-size: 2rem; /* ← aumenta el tamaño del título */
     }
     ul{list-style:none;padding:0;margin:0}
-    li{background:#fff;padding:10px;margin:8px 0;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
-    strong{display:inline-block;width:140px;color:#444}
-    #trace{display:none;background:#111;color:#e6e6e6;padding:12px;border-radius:8px;font-family:monospace;white-space:pre-wrap;max-height:50vh;overflow:auto;margin-top:12px}
+    li{
+      background:#fff;
+      padding:12px;
+      margin:8px 0;
+      border-radius:8px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.06);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    strong{
+      flex: 0 0 140px;
+      color:#444;
+      padding-right: 10px;
+    }
+    li > :not(strong) {
+      flex: 1 1 calc(100% - 160px);
+      min-width: 200px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    #trace{
+      display:none;
+      background:#111;
+      color:#e6e6e6;
+      padding:12px;
+      border-radius:8px;
+      font-family:monospace;
+      white-space:pre-wrap;
+      max-height:50vh;
+      overflow:auto;
+      margin-top:12px
+    }
     .err{color:#ff6666}
     #status{color:#666;margin-bottom:10px}
   </style>
@@ -183,20 +214,48 @@
       status.textContent = '';
       status.style.display = 'none';
 
-      // Construir lista: omitimos solo columna 0 (ID). Añadimos campo Full name al inicio.
+      // Construir lista de campos
       container.innerHTML = '';
-      // Full name field explicit
-      container.innerHTML += `<li><strong>Full name:</strong> ${fullnameVal}</li>`;
+      
+      // Función auxiliar para formatear el valor
+      const formatValue = (value) => {
+        if (!value || value.trim() === '') return '—';
+        // Escapar HTML para evitar inyección de código
+        return value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      };
 
-      // ahora añadimos el resto de campos (omitimos columna 0 y, si existe, la columna fullNameIdx para evitar duplicado)
+      // Función para crear un elemento de la lista
+      const createListItem = (label, value) => {
+        const formattedValue = formatValue(value);
+        const span = document.createElement('span');
+        span.textContent = formattedValue;
+        
+        const strong = document.createElement('strong');
+        strong.textContent = label;
+        
+        const li = document.createElement('li');
+        li.appendChild(strong);
+        li.appendChild(span);
+        return li;
+      };
+
+      // Primero añadimos el nombre completo
+      container.appendChild(createListItem('Full name', fullnameVal));
+
+      // Añadir el resto de campos, omitiendo ID y nombre completo si ya existe
       const skip = new Set([0]);
       if (fullNameIdx !== -1) skip.add(fullNameIdx);
 
       for (let i = 0; i < headers.length; i++) {
         if (skip.has(i)) continue;
         const label = headers[i] || `col${i}`;
-        const value = row[i] || '—';
-        container.innerHTML += `<li><strong>${label}:</strong> ${value}</li>`;
+        const value = row[i];
+        container.appendChild(createListItem(label, value));
       }
 
     } catch (err) {
