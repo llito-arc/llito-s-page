@@ -1,11 +1,29 @@
-<p id="lastUpdate" style="text-align:center; font-size:14px; color:#555;">
-  Cargando fecha de última actualización...
-</p>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Última actualización</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: transparent;
+      color: white;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 18px;
+      text-align: center;
+      margin: 0;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <p id="lastUpdate">Cargando fecha de última actualización...</p>
 
-<script>
-  // Obtener la fecha actual (cuando se cargue la página)
-  const date = new Date(document.lastModified);
-  const options = { year: 'numeric', month: 'long', day: 'numeric' };
-  document.getElementById("lastUpdate").innerText = 
-    "Última actualización: " + date.toLocaleDateString("es-ES", options);
-</script>
+  <script>
+    const date = new Date(document.lastModified);
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById("lastUpdate").innerText =
+      "Última actualización: " + date.toLocaleDateString("es-ES", options);
+  </script>
+</body>
+</html>
