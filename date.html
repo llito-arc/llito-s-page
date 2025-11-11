@@ -1,0 +1,11 @@
+<p id="lastUpdate" style="text-align:center; font-size:14px; color:#555;">
+  Cargando fecha de última actualización...
+</p>
+
+<script>
+  // Obtener la fecha actual (cuando se cargue la página)
+  const date = new Date(document.lastModified);
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  document.getElementById("lastUpdate").innerText = 
+    "Última actualización: " + date.toLocaleDateString("es-ES", options);
+</script>
