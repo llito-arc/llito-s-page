@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LlitoLion Updates</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0f0f12;
+      color: white;
+      font-family: Inter, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      padding: 30px;
+    }
+
+    .card {
+      background: #18181d;
+      border: 1px solid #2a2a35;
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.35);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    p {
+      color: #9ca3af;
+      font-size: 14px;
+    }
+
+    .button {
+      background: white;
+      color: black;
+      padding: 10px 18px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      opacity: 0.9;
+    }
+
+    .twitter-wrapper {
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
+    .footer {
+      margin-top: 16px;
+      text-align: center;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    @media (max-width: 700px) {
+      .container {
+        padding: 12px;
+      }
+
+      .card {
+        padding: 16px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <div class="title">
+          <h1>🛰️ LlitoLion Updates</h1>
+          <p>Últimos pensamientos, avances y posts recientes.</p>
+        </div>
+
+        <a class="button" href="https://x.com/llitolion" target="_blank">
+          Ver perfil en X
+        </a>
+      </div>
+
+      <div class="twitter-wrapper">
+        <a
+          class="twitter-timeline"
+          data-theme="dark"
+          data-height="700"
+          data-chrome="nofooter noborders transparent"
+          href="https://twitter.com/llitolion">
+          Posts by llitolion
+        </a>
+      </div>
+
+      <div class="footer">
+        Feed integrado usando X/Twitter Widgets.
+      </div>
+    </div>
+  </div>
+
+  <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+</body>
+</html>
